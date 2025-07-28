@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Settings, 
@@ -11,7 +11,7 @@ import {
   Mail,
   Download,
   MapPin,
-  Code,
+  Code as CodeIcon,
   Server,
   Shield,
   Cloud,
@@ -19,8 +19,28 @@ import {
   Terminal,
   Award,
   Coffee,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
+
+import { DiJava , DiWindows } from "react-icons/di";
+import { FaAws } from "react-icons/fa";
+import { 
+  SiPython,
+  SiJenkins,
+  SiGithubactions,
+  SiGit,
+  SiOracle,
+  SiDocker,
+  SiKubernetes,
+  SiHelm,
+  SiLinux,
+  SiNginx,
+  SiPostman,
+  SiTerraform,
+} from 'react-icons/si';
+
+import { FaTerminal } from 'react-icons/fa';
 import PipelineStage from './components/PipelineStage';
 import TechBadge from './components/TechBadge';
 import TerminalLog from './components/TerminalLog';
@@ -29,6 +49,9 @@ import ProjectCard from './components/ProjectCard';
 function App() {
   const [activeStage, setActiveStage] = useState(0);
   const [completedStages, setCompletedStages] = useState<number[]>([]);
+  const [allTerminalLogs, setAllTerminalLogs] = useState<{[key: number]: string[]}>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const stageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const stages = [
     { id: 0, title: 'Init', icon: User, description: 'Initialize Profile' },
@@ -73,17 +96,62 @@ function App() {
     ]
   };
 
+  // Simulate loading
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize all terminal logs
+  useEffect(() => {
+    setAllTerminalLogs(terminalLogs);
+  }, []);
+
+  // Handle stage completion
+  useEffect(() => {
+    if (isLoading) return;
+
     const timer = setTimeout(() => {
       if (!completedStages.includes(activeStage)) {
         setCompletedStages(prev => [...prev, activeStage]);
       }
-    }, 2000);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [activeStage, completedStages]);
+  }, [activeStage, completedStages, isLoading]);
+
+  // Intersection Observer for scroll detection
+  useEffect(() => {
+    if (isLoading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const stageId = parseInt(entry.target.id.split('-')[1]);
+            setActiveStage(stageId);
+          }
+        });
+      },
+      { threshold: 0.5, rootMargin: '-50px 0px -50px 0px' }
+    );
+
+    stageRefs.current.forEach(ref => {
+      if (ref) observer.observe(ref);
+    });
+
+    return () => {
+      stageRefs.current.forEach(ref => {
+        if (ref) observer.unobserve(ref);
+      });
+    };
+  }, [isLoading]);
 
   const getStageStatus = (stageId: number) => {
+    if (completedStages.includes(activeStage) && stageId <= activeStage) return 'success';
     if (completedStages.includes(stageId)) return 'success';
     if (stageId === activeStage) return 'running';
     return 'pending';
@@ -92,8 +160,27 @@ function App() {
   const scrollToStage = (stageId: number) => {
     setActiveStage(stageId);
     const element = document.getElementById(`stage-${stageId}`);
-    element?.scrollIntoView({ behavior: 'smooth' });
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    const newCompletedStages = Array.from({ length: stageId + 1 }, (_, i) => i);
+    setCompletedStages(Array.from(new Set([...completedStages, ...newCompletedStages])));
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-50">
+        <div className="animate-spin text-red-500 mb-4">
+          <Loader2 className="w-12 h-12" />
+        </div>
+        <div className="text-xl text-gray-300 font-mono">
+          Initializing DevOps Pipeline...
+        </div>
+        <div className="mt-4 text-sm text-gray-500">
+          Loading terminal logs and system checks
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -133,7 +220,11 @@ function App() {
 
       <main className="pt-20">
         {/* Stage 0: Init - Introduction */}
-        <section id="stage-0" className="min-h-screen flex items-center justify-center px-4">
+        <section 
+          id="stage-0" 
+          ref={el => stageRefs.current[0] = el}
+          className="min-h-screen flex items-center justify-center px-4 py-12"
+        >
           <div className="container mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-8">
@@ -161,11 +252,11 @@ function App() {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <TechBadge name="Python" color="blue" icon={<Code />} />
-                  <TechBadge name="Java" color="orange" icon={<Code />} />
-                  <TechBadge name="Linux" color="gray" icon={<Terminal />} />
-                  <TechBadge name="DevOps" color="green" icon={<Server />} />
-                  <TechBadge name="Security" color="red" icon={<Shield />} />
+                  <TechBadge name="Python" color="blue" icon={<SiPython className="w-5 h-5" />} />
+                  <TechBadge name="Java" color="orange" icon={<DiJava className="w-5 h-5" />} />
+                  <TechBadge name="Linux" color="gray" icon={<SiLinux className="w-5 h-5" />} />
+                  <TechBadge name="DevOps" color="green" icon={<Server className="w-5 h-5" />} />
+                  <TechBadge name="Security" color="red" icon={<Shield className="w-5 h-5" />} />
                 </div>
 
                 <div className="flex items-center space-x-4">
@@ -175,7 +266,21 @@ function App() {
               </div>
 
               <div className="space-y-6">
-                <TerminalLog logs={terminalLogs[0]} isVisible={activeStage === 0} />
+                <TerminalLog 
+                  logs={allTerminalLogs[0] || []} 
+                  isVisible={completedStages.includes(0)} 
+                  animate={activeStage >= 0}
+                  speed={500}
+                  customScripts={[
+                    'Checking system requirements...',
+                    'Memory: 16GB RAM ✓',
+                    'Storage: 500GB SSD ✓',
+                    'CPU: 8 cores ✓',
+                    'Network: Connected ✓',
+                    'All requirements met ✓'
+                  ]}
+                  height="full"
+                />
                 
                 <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
                   <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -203,7 +308,11 @@ function App() {
         </section>
 
         {/* Stage 1: Skills Scan */}
-        <section id="stage-1" className="min-h-screen flex items-center justify-center px-4 bg-gray-800/20">
+        <section 
+          id="stage-1" 
+          ref={el => stageRefs.current[1] = el}
+          className="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-800/20"
+        >
           <div className="container mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4 flex items-center justify-center">
@@ -214,20 +323,39 @@ function App() {
             </div>
 
             <div className="grid lg:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <TerminalLog logs={terminalLogs[1]} isVisible={activeStage === 1} />
+              <div className="space-y-6 h-full">
+                <TerminalLog 
+                  logs={allTerminalLogs[1] || []} 
+                  isVisible={completedStages.includes(1)} 
+                  animate={activeStage >= 1}
+                  speed={500}
+                  customScripts={[
+                    'Scanning system for installed technologies...',
+                    'Checking Python version... python --version → Python 3.9.7',
+                    'Verifying Java installation... java -version → openjdk 11.0.12',
+                    'Testing Docker... docker --version → Docker version 20.10.12',
+                    'Kubernetes cluster status... kubectl cluster-info → Running',
+                    'AWS CLI configured... aws --version → aws-cli/2.4.5',
+                    'OCI CLI authenticated... oci --version → 3.0.0',
+                    'Jenkins service status... systemctl status jenkins → active (running)',
+                    'Git version... git --version → git version 2.33.1',
+                    'Terraform initialized... terraform version → v1.1.7',
+                    'All technology checks completed successfully ✓'
+                  ]}
+                  height="full"
+                />
               </div>
 
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold text-white flex items-center">
-                    <Code className="w-5 h-5 mr-2 text-blue-400" />
+                    <CodeIcon className="w-5 h-5 mr-2 text-blue-400" />
                     Programming Languages
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    <TechBadge name="Python" color="blue" />
-                    <TechBadge name="Java" color="orange" />
-                    <TechBadge name="Shell Scripting" color="green" />
+                    <TechBadge name="Python" color="blue" icon={<SiPython className="w-5 h-5" />} />
+                    <TechBadge name="Java" color="orange" icon={<DiJava className="w-5 h-5" />} />
+                    <TechBadge name="Shell Scripting" color="green" icon={<FaTerminal className="w-5 h-5" />} />
                   </div>
                 </div>
 
@@ -237,9 +365,9 @@ function App() {
                     CI/CD & Automation
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    <TechBadge name="Jenkins" color="red" />
-                    <TechBadge name="GitHub Actions" color="gray" />
-                    <TechBadge name="Git" color="orange" />
+                    <TechBadge name="Jenkins" color="red" icon={<SiJenkins className="w-5 h-5" />} />
+                    <TechBadge name="GitHub Actions" color="gray" icon={<SiGithubactions className="w-5 h-5" />} />
+                    <TechBadge name="Git" color="orange" icon={<SiGit className="w-5 h-5" />} />
                   </div>
                 </div>
 
@@ -249,8 +377,8 @@ function App() {
                     Cloud Platforms
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    <TechBadge name="AWS" color="yellow" />
-                    <TechBadge name="Oracle Cloud (OCI)" color="red" />
+                    <TechBadge name="AWS" color="yellow" icon={<FaAws className="w-5 h-5" />} />
+                    <TechBadge name="Oracle Cloud (OCI)" color="red" icon={<SiOracle className="w-5 h-5" />} />
                   </div>
                 </div>
 
@@ -260,9 +388,9 @@ function App() {
                     Containerization
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    <TechBadge name="Docker" color="blue" />
-                    <TechBadge name="Kubernetes" color="purple" />
-                    <TechBadge name="Helm" color="green" />
+                    <TechBadge name="Docker" color="blue" icon={<SiDocker className="w-5 h-5" />} />
+                    <TechBadge name="Kubernetes" color="purple" icon={<SiKubernetes className="w-5 h-5" />} />
+                    <TechBadge name="Helm" color="green" icon={<SiHelm className="w-5 h-5" />} />
                   </div>
                 </div>
 
@@ -272,12 +400,12 @@ function App() {
                     Operating Systems & Tools
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    <TechBadge name="Linux (Ubuntu, RHEL)" color="gray" />
-                    <TechBadge name="Windows" color="blue" />
-                    <TechBadge name="NGINX" color="green" />
-                    <TechBadge name="Postman" color="orange" />
-                    <TechBadge name="Terraform" color="purple" />
-                    <TechBadge name="Mendix" color="blue" />
+                    <TechBadge name="Linux (Ubuntu, RHEL)" color="gray" icon={<SiLinux className="w-5 h-5" />} />
+                    <TechBadge name="Windows" color="blue" icon={<DiWindows className="w-5 h-5" />} />
+                    <TechBadge name="NGINX" color="green" icon={<SiNginx className="w-5 h-5" />} />
+                    <TechBadge name="Postman" color="orange" icon={<SiPostman className="w-5 h-5" />} />
+                    <TechBadge name="Terraform" color="purple" icon={<SiTerraform className="w-5 h-5" />} />
+                    <TechBadge name="Mendix" color="blue"  />
                   </div>
                 </div>
               </div>
@@ -286,7 +414,11 @@ function App() {
         </section>
 
         {/* Stage 2: Build - Experience */}
-        <section id="stage-2" className="min-h-screen flex items-center justify-center px-4">
+        <section 
+          id="stage-2" 
+          ref={el => stageRefs.current[2] = el}
+          className="min-h-screen flex items-center justify-center px-4 py-12"
+        >
           <div className="container mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4 flex items-center justify-center">
@@ -298,7 +430,23 @@ function App() {
 
             <div className="grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
-                <TerminalLog logs={terminalLogs[2]} isVisible={activeStage === 2} />
+                <TerminalLog 
+                  logs={allTerminalLogs[2] || []} 
+                  isVisible={completedStages.includes(2)} 
+                  animate={activeStage >= 2}
+                  speed={500}
+                  customScripts={[
+                    'Building experience timeline...',
+                    'Processing work history...',
+                    'Analyzing role: DevOps Engineer...',
+                    'Extracting key responsibilities...',
+                    'Calculating impact metrics...',
+                    'Compiling professional achievements...',
+                    'Generating performance statistics...',
+                    'Experience build successful ✓'
+                  ]}
+                  height="full"
+                />
               </div>
 
               <div className="space-y-6">
@@ -360,7 +508,11 @@ function App() {
         </section>
 
         {/* Stage 3: Test - Projects */}
-        <section id="stage-3" className="min-h-screen flex items-center justify-center px-4 bg-gray-800/20">
+        <section 
+          id="stage-3" 
+          ref={el => stageRefs.current[3] = el}
+          className="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-800/20"
+        >
           <div className="container mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4 flex items-center justify-center">
@@ -372,7 +524,27 @@ function App() {
 
             <div className="space-y-8">
               <div className="lg:w-1/2">
-                <TerminalLog logs={terminalLogs[3]} isVisible={activeStage === 3} />
+                <TerminalLog 
+                  logs={allTerminalLogs[3] || []} 
+                  isVisible={completedStages.includes(3)} 
+                  animate={activeStage >= 3}
+                  speed={500}
+                  customScripts={[
+                    'Cloning repositories...',
+                    'Repository: kubernetes-mendix-deployment',
+                    'Running tests...',
+                    '✓ Deployment validation passed',
+                    '✓ Auto-scaling tests passed',
+                    '✓ Load balancing tests passed',
+                    'Repository: python-webapp-cicd',
+                    'Running tests...',
+                    '✓ Build pipeline validation passed',
+                    '✓ Security scans passed',
+                    '✓ Deployment tests passed',
+                    'All project tests completed successfully ✓'
+                  ]}
+                  height="full"
+                />
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
@@ -421,7 +593,11 @@ function App() {
         </section>
 
         {/* Stage 4: Deploy - Certifications & Interests */}
-        <section id="stage-4" className="min-h-screen flex items-center justify-center px-4">
+        <section 
+          id="stage-4" 
+          ref={el => stageRefs.current[4] = el}
+          className="min-h-screen flex items-center justify-center px-4 py-12"
+        >
           <div className="container mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4 flex items-center justify-center">
@@ -433,7 +609,22 @@ function App() {
 
             <div className="grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
-                <TerminalLog logs={terminalLogs[4]} isVisible={activeStage === 4} />
+                <TerminalLog 
+                  logs={allTerminalLogs[4] || []} 
+                  isVisible={completedStages.includes(4)} 
+                  animate={activeStage >= 4}
+                  speed={500}
+                  customScripts={[
+                    'Preparing certification packages...',
+                    'Validating AWS Cloud Practitioner credential... ✓',
+                    'Packaging professional achievements...',
+                    'Generating learning roadmap...',
+                    'Analyzing current interests...',
+                    'Calculating skill progression...',
+                    'Deployment successful ✓'
+                  ]}
+                  height="full"
+                />
               </div>
 
               <div className="space-y-8">
@@ -509,7 +700,11 @@ function App() {
         </section>
 
         {/* Stage 5: Monitor - Contact & Social */}
-        <section id="stage-5" className="min-h-screen flex items-center justify-center px-4 bg-gray-800/20">
+        <section 
+          id="stage-5" 
+          ref={el => stageRefs.current[5] = el}
+          className="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-800/20"
+        >
           <div className="container mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4 flex items-center justify-center">
@@ -521,7 +716,23 @@ function App() {
 
             <div className="grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
-                <TerminalLog logs={terminalLogs[5]} isVisible={activeStage === 5} />
+                <TerminalLog 
+                  logs={allTerminalLogs[5] || []} 
+                  isVisible={completedStages.includes(5)} 
+                  animate={activeStage >= 5}
+                  speed={500}
+                  customScripts={[
+                    'Initializing connection protocols...',
+                    'Testing LinkedIn API... ✓ Online',
+                    'Testing GitHub API... ✓ Online',
+                    'Testing Email service... ✓ Operational',
+                    'Establishing secure channels...',
+                    'Connection encryption: AES-256 ✓',
+                    'All social channels monitored ✓',
+                    'Ready for incoming connections ✓'
+                  ]}
+                  height="full"
+                />
               </div>
 
               <div className="space-y-8">
@@ -555,7 +766,7 @@ function App() {
                     </a>
 
                     <a
-                      href="mailto:your_email@example.com"
+                      href="mailto:dhesigan02@gmail.com"
                       className="flex items-center space-x-3 p-3 bg-red-600/10 border border-red-600/30 rounded-lg hover:bg-red-600/20 transition-colors"
                     >
                       <Mail className="w-6 h-6 text-red-400" />
